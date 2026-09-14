@@ -7,7 +7,7 @@ Página única e autocontida (HTML + CSS + JS, logo embutido em base64). Não ex
 | Arquivo | O que é |
 | --- | --- |
 | `pit_stop_rog.html` | A página. É o único arquivo que precisa ir para produção. |
-| `harness.js` | Suíte de testes em jsdom: 49 verificações da sessão completa. |
+| `harness.js` | Suíte de testes em jsdom: 58 verificações da sessão completa. |
 | `package.json` | Só o jsdom, usado pelos testes. |
 
 ## Linha do tempo da sessão
@@ -41,7 +41,7 @@ npm install
 npm test
 ```
 
-Saída esperada: `49/49 verificacoes aprovadas`. O script sai com código 1 se algo falhar.
+Saída esperada: `58/58 verificacoes aprovadas`. O script sai com código 1 se algo falhar.
 
 Cobertura: seleção de condição e arranque, os 60 s quadro a quadro (transições em 3, 8, 11, 15 s e a cada 8 s até 56 s), rótulos de ciclo, desvio do cronômetro, tela final, disparo e conteúdo das falas, reinício pelos dois botões, sessão com `speak()` lançando exceção, sessão sem API de voz, e aba em segundo plano com os quadros congelados.
 

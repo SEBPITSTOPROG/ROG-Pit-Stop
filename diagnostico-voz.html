@@ -71,8 +71,30 @@ function log(msg, cls){
 }
 
 function ambiente(){
-  log('UA: ' + navigator.userAgent);
+  const ua = navigator.userAgent;
+  log('UA: ' + ua);
   log('speechSynthesis existe: ' + ('speechSynthesis' in window));
+
+  /* Navegador embutido de app (WhatsApp, Instagram, LinkedIn...). Esses
+     WebViews frequentemente aceitam speak() e nao emitem som nenhum. */
+  const iOS = /iPhone|iPad|iPod/i.test(ua);
+  const safariReal = iOS && /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
+  const appEmbutido =
+    /FBAN|FBAV|Instagram|Line|WhatsApp|LinkedInApp|MicroMessenger|Twitter/i.test(ua) ||
+    (iOS && !safariReal && !/CriOS|FxiOS|EdgiOS/i.test(ua));
+
+  if(appEmbutido){
+    log('ATENCAO: isto parece um navegador DENTRO DE UM APP (WebView).', 'bad');
+    log('Esses navegadores costumam aceitar a fala e nao emitir som.', 'bad');
+    log('Abra a pagina no Safari/Chrome de verdade antes de concluir.', 'bad');
+  }else{
+    log('Navegador: parece ser um navegador completo (nao WebView de app).', 'ok');
+  }
+
+  if(iOS){
+    log('iPhone/iPad detectado. A chave lateral no MUDO silencia a voz da', 'info');
+    log('pagina, mesmo com o volume alto. Confira o interruptor fisico.', 'info');
+  }
 }
 
 /* Fala instrumentada: registra se a engine realmente comecou e terminou.

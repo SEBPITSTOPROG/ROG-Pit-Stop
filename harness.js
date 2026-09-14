@@ -34,12 +34,28 @@ function boot(opts = {}) {
       if (!opts.noSpeech) {
         win.SpeechSynthesisUtterance = function (text) { this.text = text; };
         win.speechSynthesis = {
-          getVoices: () => [{ lang: 'pt-BR', name: 'fake-br' }],
-          cancel: () => { state.cancels++; },
+          // opts.voices: lista crua; opts.voicesLate: comeca vazia e so
+          // aparece depois que a pagina reage a voiceschanged.
+          getVoices: () => {
+            if (opts.voicesLate && !state.vozesLiberadas) return [];
+            return opts.voices || [{ lang: 'pt-BR', name: 'fake-br', default: true }];
+          },
+          cancel: () => { state.cancels++; state.speaking = false; },
           speak: u => {
             if (opts.speakThrows) throw new Error('audio device failure');
-            state.speech.push({ t: +state.t.toFixed(2), text: u.text });
-          }
+            state.speech.push({
+              t: +state.t.toFixed(2),
+              text: u.text,
+              voz: u.voice ? u.voice.name : null
+            });
+            // opts.vozFalha: a voz escolhida existe mas nao produz som.
+            if (opts.vozFalha && u.voice) {
+              state.speaking = false;
+              if (u.onerror) u.onerror({ error: 'synthesis-failed' });
+            }
+          },
+          get speaking() { return !!state.speaking; },
+          get pending() { return false; }
         };
       }
 
@@ -267,6 +283,82 @@ check('encerra no tempo mesmo sem quadros', snap(bg).screen === 'screenFinish', 
 bg.frozen = false;
 tick(bg, 2);
 check('nao reabre nem duplica o encerramento', snap(bg).screen === 'screenFinish' && snap(bg).timer === '00:00', snap(bg).screen + ' ' + snap(bg).timer);
+
+// ===================================================================== TEST 7
+console.log('\n=== 7. ROBUSTEZ DA VOZ NO CELULAR ===');
+
+// -- voz pt-BR e' escolhida e anexada a fala
+const v1 = boot();
+const v1doc = v1.win.document;
+v1doc.querySelector('.option[data-state="presente"]').dispatchEvent(new v1.win.MouseEvent('click', { bubbles: true }));
+v1doc.getElementById('beginBtn').dispatchEvent(new v1.win.MouseEvent('click', { bubbles: true }));
+check('escolhe a voz pt-BR disponivel', v1.speech[0] && v1.speech[0].voz === 'fake-br',
+  v1.speech[0] ? String(v1.speech[0].voz) : 'sem fala');
+
+// -- lista de vozes chega atrasada (getVoices vazio no carregamento)
+const v2 = boot({ voicesLate: true });
+const v2doc = v2.win.document;
+v2.vozesLiberadas = true;                        // aparelho populou a lista
+if (v2.win.speechSynthesis.onvoiceschanged) v2.win.speechSynthesis.onvoiceschanged();
+v2doc.querySelector('.option[data-state="presente"]').dispatchEvent(new v2.win.MouseEvent('click', { bubbles: true }));
+v2doc.getElementById('beginBtn').dispatchEvent(new v2.win.MouseEvent('click', { bubbles: true }));
+check('voz que carrega atrasada e' + ' recuperada via voiceschanged',
+  v2.speech[0] && v2.speech[0].voz === 'fake-br', v2.speech[0] ? String(v2.speech[0].voz) : 'sem fala');
+
+// -- sem nenhuma voz pt, fala assim mesmo (navegador decide pelo lang)
+const v3 = boot({ voices: [{ lang: 'en-US', name: 'fake-en' }] });
+const v3doc = v3.win.document;
+v3doc.querySelector('.option[data-state="presente"]').dispatchEvent(new v3.win.MouseEvent('click', { bubbles: true }));
+v3doc.getElementById('beginBtn').dispatchEvent(new v3.win.MouseEvent('click', { bubbles: true }));
+check('sem voz pt, fala sem voz explicita (nao fica muda)',
+  v3.speech.length === 1 && v3.speech[0].voz === null,
+  v3.speech.length + ' falas, voz=' + (v3.speech[0] ? String(v3.speech[0].voz) : '-'));
+
+// -- voz existe mas falha: repete uma vez sem voz explicita
+const v4 = boot({ vozFalha: true });
+const v4doc = v4.win.document;
+v4doc.querySelector('.option[data-state="presente"]').dispatchEvent(new v4.win.MouseEvent('click', { bubbles: true }));
+v4doc.getElementById('beginBtn').dispatchEvent(new v4.win.MouseEvent('click', { bubbles: true }));
+check('voz que falha dispara UMA repeticao sem voz', v4.speech.length === 2 &&
+  v4.speech[0].voz === 'fake-br' && v4.speech[1].voz === null,
+  v4.speech.map(x => x.voz).join(' -> '));
+tick(v4, 61);
+check('sessao com voz falhando chega ao fim', snap(v4).screen === 'screenFinish', snap(v4).screen);
+
+// -- fala nao se sobrepoe a outra que ainda esta saindo
+const v5 = boot();
+const v5doc = v5.win.document;
+v5doc.querySelector('.option[data-state="presente"]').dispatchEvent(new v5.win.MouseEvent('click', { bubbles: true }));
+v5doc.getElementById('beginBtn').dispatchEvent(new v5.win.MouseEvent('click', { bubbles: true }));
+tick(v5, 8.5);                                   // fala do ciclo 1 saiu em 8 s
+v5.speaking = true;                              // e ainda esta saindo
+const antesDo11 = v5.speech.length;
+tick(v5, 3);                                     // chega a fala dos 11 s
+check('nao empilha fala sobre fala em andamento', v5.speech.length === antesDo11,
+  antesDo11 + ' -> ' + v5.speech.length + ' falas');
+
+// -- flag speaking presa nao pode emudecer o resto da sessao
+const v5b = boot();
+const v5bdoc = v5b.win.document;
+v5bdoc.querySelector('.option[data-state="presente"]').dispatchEvent(new v5b.win.MouseEvent('click', { bubbles: true }));
+v5bdoc.getElementById('beginBtn').dispatchEvent(new v5b.win.MouseEvent('click', { bubbles: true }));
+v5b.speaking = true;                             // trava e nunca solta
+tick(v5b, 61);
+check('speaking preso nao emudece a sessao inteira', v5b.speech.length >= 3,
+  v5b.speech.length + ' falas com a flag travada');
+
+// -- reinicio: cancela o que estava tocando e volta a falar
+const v6 = boot();
+const v6doc = v6.win.document;
+v6doc.querySelector('.option[data-state="presente"]').dispatchEvent(new v6.win.MouseEvent('click', { bubbles: true }));
+v6doc.getElementById('beginBtn').dispatchEvent(new v6.win.MouseEvent('click', { bubbles: true }));
+tick(v6, 12);
+const falasAntes = v6.speech.length;
+v6.speaking = true;                              // havia fala em andamento
+v6doc.getElementById('restartBtn').dispatchEvent(new v6.win.MouseEvent('click', { bubbles: true }));
+check('reinicio cancela a fala em andamento', v6.cancels >= 1, v6.cancels + ' cancels');
+check('reinicio volta a falar a abertura', v6.speech.length > falasAntes,
+  falasAntes + ' -> ' + v6.speech.length + ' falas');
 
 // ===================================================================== RESUMO
 const failed = results.filter(r => !r.pass);
