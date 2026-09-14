@@ -1,0 +1,16 @@
+{
+  "name": "pit-stop-recalibracao",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pit Stop da Saude Mental - protocolo guiado de 60 segundos (Superior Energy Services)",
+  "scripts": {
+    "test": "node harness.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1",
+    "playwright": "^1.63.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
