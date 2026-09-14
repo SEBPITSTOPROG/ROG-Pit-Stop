@@ -1140,19 +1140,13 @@ function playConfirmTone(){
   }catch(error){}
 }
 
-function pickVoice(){
-  try{
-    if(!("speechSynthesis" in window)) return null;
-    const voices = window.speechSynthesis.getVoices() || [];
-    return voices.find(voice => /^pt[-_]BR/i.test(voice.lang)) ||
-           voices.find(voice => /^pt/i.test(voice.lang)) ||
-           null;
-  }catch(error){
-    return null;
-  }
-}
+/* A fala nunca controla o tempo da sessão. Se falhar, nada muda.
 
-/* A fala nunca controla o tempo da sessão. Se falhar, nada muda. */
+   Nao definimos utterance.voice de proposito: escolher explicitamente a
+   primeira voz pt-BR da lista costuma cair na "Google português do Brasil",
+   que e' remota (localService:false) e depende de rede. Como cancel() roda
+   logo antes de cada speak(), a requisicao da voz remota e' abortada e nada
+   toca. Deixando o navegador escolher, ele usa a voz local do sistema. */
 function speakNow(text){
   if(!text) return;
   if(!("speechSynthesis" in window)) return;
@@ -1161,14 +1155,11 @@ function speakNow(text){
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    const voice = pickVoice();
-
-    if(voice) utterance.voice = voice;
 
     utterance.lang = "pt-BR";
-    utterance.rate = 1;
-    utterance.pitch = 0.95;
-    utterance.volume = 0.85;
+    utterance.rate = 0.88;
+    utterance.pitch = 0.92;
+    utterance.volume = 0.9;
 
     window.speechSynthesis.speak(utterance);
   }catch(error){
@@ -1346,8 +1337,9 @@ function selectState(button){
 function runSession(){
   const startTime = performance.now();
 
-  let lastKey = null;
-  let lastCount = null;
+  /* O estado inicial ja foi aplicado (e falado) dentro do clique. */
+  let lastKey = "prep";
+  let lastCount = String(PREP_END);
 
   function frame(now){
     if(!isRunning) return;
@@ -1436,8 +1428,12 @@ function startExperience(){
   isRunning = true;
   showScreen("screenExperience");
 
-  const breathZone = $("breathZone");
-  if(breathZone) breathZone.classList.add("prestart");
+  /* A primeira fala precisa sair daqui, ainda dentro da pilha do clique:
+     sem ativacao do usuario o Chrome bloqueia speechSynthesis.speak()
+     (M71+) e o iOS nunca libera o motor de voz. Aplicando o estado inicial
+     agora, as falas seguintes (ja disparadas por requestAnimationFrame)
+     rodam com o motor destravado. */
+  applySessionState(getSessionState(0));
 
   runSession();
 }
