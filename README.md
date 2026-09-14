@@ -7,7 +7,7 @@ Página única e autocontida (HTML + CSS + JS, logo embutido em base64). Não ex
 | Arquivo | O que é |
 | --- | --- |
 | `pit_stop_rog.html` | A página. É o único arquivo que precisa ir para produção. |
-| `harness.js` | Suíte de testes em jsdom: 43 verificações da sessão completa. |
+| `harness.js` | Suíte de testes em jsdom: 46 verificações da sessão completa. |
 | `package.json` | Só o jsdom, usado pelos testes. |
 
 ## Linha do tempo da sessão
@@ -22,7 +22,9 @@ Página única e autocontida (HTML + CSS + JS, logo embutido em base64). Não ex
 
 Tudo é derivado de `performance.now()` a cada quadro: anel, contador, barra de progresso e cronômetro leem o mesmo tempo decorrido. A duração de cada etapa vai para o CSS pela variável `--step-dur`, então a animação acompanha a contagem.
 
-A voz tem seis falas ancoradas (abertura, "Recupere o foco" nos ciclos 1 e 4, "Reduza o ruído" nos ciclos 1 e 4, encerramento). Ela nunca controla o tempo: se a síntese falhar, não existir no navegador ou o aparelho estiver no mudo, a sessão roda igual, guiada pelo texto e pelo número na tela.
+A voz acompanha a instrução na tela: são 14 falas ancoradas na linha do tempo — abertura, "Inspirar" e "Expirar" em cada um dos 6 ciclos, e encerramento. A pausa não é narrada. Ela nunca controla o tempo: se a síntese falhar, não existir no navegador ou o aparelho estiver no mudo, a sessão roda igual, guiada pelo texto e pelo número na tela.
+
+A voz não define `utterance.voice` de propósito. Escolher explicitamente a primeira voz pt-BR da lista costuma cair na "Google português do Brasil", que é remota (`localService:false`) e depende de rede; como `cancel()` roda logo antes de cada `speak()`, a requisição é abortada e nada toca. Deixando o navegador escolher, ele usa a voz local do sistema.
 
 ## Rodar os testes
 
@@ -31,7 +33,7 @@ npm install
 npm test
 ```
 
-Saída esperada: `43/43 verificacoes aprovadas`. O script sai com código 1 se algo falhar.
+Saída esperada: `46/46 verificacoes aprovadas`. O script sai com código 1 se algo falhar.
 
 Cobertura: seleção de condição e arranque, os 60 s quadro a quadro (transições em 3, 8, 11, 15 s e a cada 8 s até 56 s), rótulos de ciclo, desvio do cronômetro, tela final, disparo e conteúdo das falas, reinício pelos dois botões, sessão com `speak()` lançando exceção, sessão sem API de voz, e aba em segundo plano com os quadros congelados.
 

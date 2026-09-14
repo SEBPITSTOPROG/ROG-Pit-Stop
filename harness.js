@@ -139,7 +139,7 @@ for (let i = 0; i < 60 * 60; i++) {
   const v = snap(s);
   const key = v.zone + '|' + v.instruction + '|' + v.phase;
   if (key !== prevKey) {
-    transitions.push({ t: +s.t.toFixed(3), zone: v.zone, instruction: v.instruction, phase: v.phase, count: v.count, dur: v.stepDur });
+    transitions.push({ t: +s.t.toFixed(3), zone: v.zone, instruction: v.instruction, phase: v.phase, count: v.count, dur: v.stepDur, copy: v.copy });
     prevKey = key;
   }
   // cronometro x tempo real
@@ -163,6 +163,9 @@ const cycleStarts = transitions.filter(x => x.zone === 'inhale');
 check('exatamente 6 ciclos guiados', cycleStarts.length === 6, cycleStarts.length + ' ciclos');
 check('ciclos a cada 8 s', cycleStarts.every((c, i) => Math.abs(c.t - (8 + i * 8)) < 0.02), cycleStarts.map(c => c.t).join(', '));
 check('rotulos "Ciclo N de 6" corretos', cycleStarts.every((c, i) => c.phase === 'Ciclo ' + (i + 1) + ' de 6'), cycleStarts.map(c => c.phase).join(' / '));
+const pauses = transitions.filter(x => x.zone === 'pause');
+check('pausa sem texto de apoio na tela', pauses.length === 6 && pauses.every(p => p.copy === ''),
+  pauses.length + ' pausas, textos: ' + JSON.stringify(pauses.map(p => p.copy)));
 check('cronometro nunca desvia mais de 1 s do relogio', Math.max(...drift) < 1.001, 'desvio max ' + Math.max(...drift).toFixed(3) + ' s');
 
 tick(s, 1 / 60);
@@ -178,13 +181,23 @@ console.log('\n=== 3. FALAS DISPARADAS ===');
 s.speech.forEach(x => console.log('  t=' + String(x.t).padEnd(7) + ' "' + x.text + '"'));
 const texts = s.speech.map(x => x.text);
 check('fala de abertura em t=0', s.speech[0] && s.speech[0].t < 0.05);
-check('"Recupere o foco." disparada 2x', texts.filter(t => t === 'Recupere o foco.').length === 2);
-check('"Reduza o ruído." disparada 2x', texts.filter(t => t === 'Reduza o ruído.').length === 2);
-check('nenhuma fala narra inspire/expire', !texts.some(t => /inspir|expir/i.test(t)), texts.join(' | '));
-check('total de falas na sessao <= 6', s.speech.length <= 6, s.speech.length + ' falas');
-const cueTimes = s.speech.slice(1, 5).map(x => x.t);
-check('falas caem no inicio das etapas certas (8, 11, 32, 35 s)',
-  [8, 11, 32, 35].every((exp, i) => Math.abs(cueTimes[i] - exp) <= 0.025), cueTimes.join(', '));
+check('"Inspirar" falada nos 6 ciclos', texts.filter(t => t === 'Inspirar').length === 6,
+  texts.filter(t => t === 'Inspirar').length + 'x');
+check('"Expirar" falada nos 6 ciclos', texts.filter(t => t === 'Expirar').length === 6,
+  texts.filter(t => t === 'Expirar').length + 'x');
+check('nenhuma fala usa os textos de apoio da tela',
+  !texts.some(t => /recupere o foco|reduza o ru/i.test(t)), texts.join(' | '));
+check('a pausa nao e narrada', !texts.some(t => /pausa/i.test(t)), texts.join(' | '));
+check('total de falas na sessao = 14 (abertura + 6x2 + encerramento)', s.speech.length === 14,
+  s.speech.length + ' falas');
+const inspirarTimes = s.speech.filter(x => x.text === 'Inspirar').map(x => x.t);
+const expirarTimes = s.speech.filter(x => x.text === 'Expirar').map(x => x.t);
+check('"Inspirar" no inicio de cada inspiracao (8, 16, 24, 32, 40, 48 s)',
+  [8, 16, 24, 32, 40, 48].every((exp, i) => Math.abs(inspirarTimes[i] - exp) <= 0.025),
+  inspirarTimes.join(', '));
+check('"Expirar" no inicio de cada expiracao (11, 19, 27, 35, 43, 51 s)',
+  [11, 19, 27, 35, 43, 51].every((exp, i) => Math.abs(expirarTimes[i] - exp) <= 0.025),
+  expirarTimes.join(', '));
 
 // ===================================================================== TEST 4
 console.log('\n=== 4. REINICIO ===');

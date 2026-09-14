@@ -491,6 +491,9 @@ h1{
 .breath-copy{
   margin:8px auto 0;
   max-width:280px;
+  /* A pausa nao tem texto de apoio. Sem reservar a linha, o elemento colapsa
+     e a zona de respiracao salta para cima a cada ciclo. */
+  min-height:1.45em;
   font-size:11px;
   line-height:1.45;
   color:#dce7ed;
@@ -1053,14 +1056,12 @@ const CYCLE         = INHALE + EXHALE + PAUSE;
 const CYCLES        = 6;
 const GUIDED_END    = GUIDED_START + (CYCLES * CYCLE);
 
-/* Falas ancoradas em momentos especificos da linha do tempo.
-   Nenhuma delas narra "inspire" ou "expire". */
+/* A voz acompanha a instrucao na tela: cada inspiracao e cada expiracao
+   dos 6 ciclos e' anunciada, para guiar a respiracao de olhos fechados. */
 const voiceCues = {
-  "prep"        : "Vamos fazer uma breve recalibração.",
-  "cycle-0-in"  : "Recupere o foco.",
-  "cycle-0-ex"  : "Reduza o ruído.",
-  "cycle-3-in"  : "Recupere o foco.",
-  "cycle-3-ex"  : "Reduza o ruído."
+  "prep"    : "Vamos fazer uma breve recalibração.",
+  "inhale"  : "Inspirar",
+  "exhale"  : "Expirar"
 };
 
 const ZONE_STATES = ["prestart","natural","inhale","exhale","pause","hold","breathing"];
@@ -1209,7 +1210,8 @@ function getSessionState(elapsed){
       instruction:"Prepare-se.",
       copy:"A sessão começa em instantes.",
       count:String(Math.max(1, Math.ceil(PREP_END - elapsed))),
-      stepDuration:null
+      stepDuration:null,
+      voice:voiceCues.prep
     };
   }
 
@@ -1239,7 +1241,8 @@ function getSessionState(elapsed){
         instruction:"Inspirar",
         copy:"Recupere o foco",
         count:String(Math.max(1, Math.ceil(INHALE - within))),
-        stepDuration:INHALE
+        stepDuration:INHALE,
+        voice:voiceCues.inhale
       };
     }
 
@@ -1251,7 +1254,8 @@ function getSessionState(elapsed){
         instruction:"Expirar",
         copy:"Reduza o ruído",
         count:String(Math.max(1, Math.ceil(INHALE + EXHALE - within))),
-        stepDuration:EXHALE
+        stepDuration:EXHALE,
+        voice:voiceCues.exhale
       };
     }
 
@@ -1260,7 +1264,7 @@ function getSessionState(elapsed){
       zone:"pause",
       phase:phase,
       instruction:"Pausa",
-      copy:"Opcional. Siga se preferir.",
+      copy:"",
       count:"1",
       stepDuration:PAUSE
     };
@@ -1302,7 +1306,7 @@ function applySessionState(state){
   if(breathCopy) breathCopy.textContent = state.copy;
   if(breathCount) breathCount.textContent = state.count;
 
-  if(voiceCues[state.key]) speakNow(voiceCues[state.key]);
+  if(state.voice) speakNow(state.voice);
 }
 
 function selectState(button){
