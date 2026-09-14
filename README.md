@@ -7,7 +7,7 @@ Página única e autocontida (HTML + CSS + JS, logo embutido em base64). Não ex
 | Arquivo | O que é |
 | --- | --- |
 | `pit_stop_rog.html` | A página. É o único arquivo que precisa ir para produção. |
-| `harness.js` | Suíte de testes em jsdom: 46 verificações da sessão completa. |
+| `harness.js` | Suíte de testes em jsdom: 47 verificações da sessão completa. |
 | `package.json` | Só o jsdom, usado pelos testes. |
 
 ## Linha do tempo da sessão
@@ -15,16 +15,16 @@ Página única e autocontida (HTML + CSS + JS, logo embutido em base64). Não ex
 | Trecho | O que acontece |
 | --- | --- |
 | 0–3 s | Preparação, contagem 3, 2, 1 |
-| 3–8 s | Respiração natural |
-| 8–56 s | 6 ciclos de 3 s inspiração + 4 s expiração + 1 s de pausa opcional |
-| 56–60 s | Respiração natural |
+| 3–8 s | "Respire naturalmente" |
+| 8–56 s | 6 ciclos de 3 s inspiração + 4 s expiração + 1 s de pausa confortável |
+| 56–60 s | "Respire naturalmente" |
 | 60 s | Tela final |
 
 Tudo é derivado de `performance.now()` a cada quadro: anel, contador, barra de progresso e cronômetro leem o mesmo tempo decorrido. A duração de cada etapa vai para o CSS pela variável `--step-dur`, então a animação acompanha a contagem.
 
-A voz acompanha a instrução na tela: são 14 falas ancoradas na linha do tempo — abertura, "Inspirar" e "Expirar" em cada um dos 6 ciclos, e encerramento. A pausa não é narrada. Ela nunca controla o tempo: se a síntese falhar, não existir no navegador ou o aparelho estiver no mudo, a sessão roda igual, guiada pelo texto e pelo número na tela.
+A voz tem 14 falas ancoradas na linha do tempo: abertura, "Recupere o foco" na inspiração e "Reduza o ruído" na expiração de cada um dos 6 ciclos, e encerramento. Ela nunca narra a contagem, nem diz "inspire"/"expire", nem anuncia a pausa — isso fica no texto e no número da tela. E nunca controla o tempo: se a síntese falhar, não existir no navegador ou o aparelho estiver no mudo, a sessão roda igual até os 60 s.
 
-A voz não define `utterance.voice` de propósito. Escolher explicitamente a primeira voz pt-BR da lista costuma cair na "Google português do Brasil", que é remota (`localService:false`) e depende de rede; como `cancel()` roda logo antes de cada `speak()`, a requisição é abortada e nada toca. Deixando o navegador escolher, ele usa a voz local do sistema.
+A escolha de voz considera **apenas vozes locais** (`localService`), preferindo pt-BR. As remotas — como a "Google português do Brasil" — sintetizam via rede, e como `cancel()` roda logo antes de cada `speak()`, a requisição é abortada e nada toca. Sem voz local em português, `pickVoice()` devolve `null` e o navegador escolhe sozinho a partir do `lang="pt-BR"`.
 
 ## Rodar os testes
 
@@ -33,16 +33,19 @@ npm install
 npm test
 ```
 
-Saída esperada: `46/46 verificacoes aprovadas`. O script sai com código 1 se algo falhar.
+Saída esperada: `47/47 verificacoes aprovadas`. O script sai com código 1 se algo falhar.
 
 Cobertura: seleção de condição e arranque, os 60 s quadro a quadro (transições em 3, 8, 11, 15 s e a cada 8 s até 56 s), rótulos de ciclo, desvio do cronômetro, tela final, disparo e conteúdo das falas, reinício pelos dois botões, sessão com `speak()` lançando exceção, sessão sem API de voz, e aba em segundo plano com os quadros congelados.
 
+## Verificação visual
+
+O jsdom não executa animação CSS, então a sincronia visual foi medida à parte, em Chromium real, com `visual-sync-check.js` (precisa de `npm i -D playwright`). Ele abre a página, roda a sessão e mede o diâmetro renderizado de `.core` em instantes fixos, salvando capturas e a tabela em `screenshots/`.
+
+Resultado medido (base de 92 px): inspiração cresce 80,96 → 112,24 px em 3 s; expiração reduz 112,24 → 80,96 px em 4 s (queda mais lenta que a subida, como esperado); pausa fica estável em 80,96 px.
+
 ## O que ainda NÃO foi testado
 
-Estas duas coisas nunca foram validadas e são o motivo desta sessão na nuvem existir:
-
-1. **Sincronia visual da animação.** O jsdom não executa animação CSS. Está confirmado que a duração correta chega à variável que o CSS consome, mas não que o anel expande e contrai no ritmo certo na tela.
-2. **Áudio.** Nenhuma máquina headless tem saída de som nem motor de voz. Está confirmado que a função de fala é chamada com o texto certo no instante certo, e nada além disso. **Ouvir a voz continua sendo teste manual em um aparelho real.**
+**Áudio em aparelho real.** Máquina headless não tem saída de som nem motor de voz — `getVoices()` volta vazio, então nenhuma fala chega a ser sintetizada aqui. Está confirmado que a função de fala é chamada com o texto certo no instante certo, e que a sessão roda igual quando o áudio falha. **Ouvir a voz continua sendo teste manual em um aparelho real.**
 
 ---
 

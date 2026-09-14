@@ -181,23 +181,24 @@ console.log('\n=== 3. FALAS DISPARADAS ===');
 s.speech.forEach(x => console.log('  t=' + String(x.t).padEnd(7) + ' "' + x.text + '"'));
 const texts = s.speech.map(x => x.text);
 check('fala de abertura em t=0', s.speech[0] && s.speech[0].t < 0.05);
-check('"Inspirar" falada nos 6 ciclos', texts.filter(t => t === 'Inspirar').length === 6,
-  texts.filter(t => t === 'Inspirar').length + 'x');
-check('"Expirar" falada nos 6 ciclos', texts.filter(t => t === 'Expirar').length === 6,
-  texts.filter(t => t === 'Expirar').length + 'x');
-check('nenhuma fala usa os textos de apoio da tela',
-  !texts.some(t => /recupere o foco|reduza o ru/i.test(t)), texts.join(' | '));
+check('"Recupere o foco." falada nos 6 ciclos', texts.filter(t => t === 'Recupere o foco.').length === 6,
+  texts.filter(t => t === 'Recupere o foco.').length + 'x');
+check('"Reduza o ruído." falada nos 6 ciclos', texts.filter(t => t === 'Reduza o ruído.').length === 6,
+  texts.filter(t => t === 'Reduza o ruído.').length + 'x');
+check('nenhuma fala narra inspire/expire', !texts.some(t => /inspir|expir/i.test(t)), texts.join(' | '));
+check('nenhuma fala narra a contagem', !texts.some(t => /\b(um|dois|tr[eê]s|quatro|cinco|[0-9])\b/i.test(t)),
+  texts.join(' | '));
 check('a pausa nao e narrada', !texts.some(t => /pausa/i.test(t)), texts.join(' | '));
 check('total de falas na sessao = 14 (abertura + 6x2 + encerramento)', s.speech.length === 14,
   s.speech.length + ' falas');
-const inspirarTimes = s.speech.filter(x => x.text === 'Inspirar').map(x => x.t);
-const expirarTimes = s.speech.filter(x => x.text === 'Expirar').map(x => x.t);
-check('"Inspirar" no inicio de cada inspiracao (8, 16, 24, 32, 40, 48 s)',
-  [8, 16, 24, 32, 40, 48].every((exp, i) => Math.abs(inspirarTimes[i] - exp) <= 0.025),
-  inspirarTimes.join(', '));
-check('"Expirar" no inicio de cada expiracao (11, 19, 27, 35, 43, 51 s)',
-  [11, 19, 27, 35, 43, 51].every((exp, i) => Math.abs(expirarTimes[i] - exp) <= 0.025),
-  expirarTimes.join(', '));
+const focoTimes = s.speech.filter(x => x.text === 'Recupere o foco.').map(x => x.t);
+const ruidoTimes = s.speech.filter(x => x.text === 'Reduza o ruído.').map(x => x.t);
+check('"Recupere o foco." no inicio de cada inspiracao (8, 16, 24, 32, 40, 48 s)',
+  [8, 16, 24, 32, 40, 48].every((exp, i) => Math.abs(focoTimes[i] - exp) <= 0.025),
+  focoTimes.join(', '));
+check('"Reduza o ruído." no inicio de cada expiracao (11, 19, 27, 35, 43, 51 s)',
+  [11, 19, 27, 35, 43, 51].every((exp, i) => Math.abs(ruidoTimes[i] - exp) <= 0.025),
+  ruidoTimes.join(', '));
 
 // ===================================================================== TEST 4
 console.log('\n=== 4. REINICIO ===');

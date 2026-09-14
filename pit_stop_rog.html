@@ -1056,12 +1056,13 @@ const CYCLE         = INHALE + EXHALE + PAUSE;
 const CYCLES        = 6;
 const GUIDED_END    = GUIDED_START + (CYCLES * CYCLE);
 
-/* A voz acompanha a instrucao na tela: cada inspiracao e cada expiracao
-   dos 6 ciclos e' anunciada, para guiar a respiracao de olhos fechados. */
+/* A voz reforca a intencao de cada etapa dos 6 ciclos. Ela nunca narra a
+   contagem nem diz "inspire"/"expire" — isso fica no texto e no numero da
+   tela, que continuam funcionando com o som desligado. */
 const voiceCues = {
   "prep"    : "Vamos fazer uma breve recalibração.",
-  "inhale"  : "Inspirar",
-  "exhale"  : "Expirar"
+  "inhale"  : "Recupere o foco.",
+  "exhale"  : "Reduza o ruído."
 };
 
 const ZONE_STATES = ["prestart","natural","inhale","exhale","pause","hold","breathing"];
@@ -1141,13 +1142,29 @@ function playConfirmTone(){
   }catch(error){}
 }
 
-/* A fala nunca controla o tempo da sessão. Se falhar, nada muda.
+/* Prefere uma voz pt-BR do proprio aparelho.
 
-   Nao definimos utterance.voice de proposito: escolher explicitamente a
-   primeira voz pt-BR da lista costuma cair na "Google português do Brasil",
-   que e' remota (localService:false) e depende de rede. Como cancel() roda
-   logo antes de cada speak(), a requisicao da voz remota e' abortada e nada
-   toca. Deixando o navegador escolher, ele usa a voz local do sistema. */
+   So consideramos vozes locais (localService). As remotas — como a "Google
+   português do Brasil" — sintetizam via rede, e como cancel() roda logo
+   antes de cada speak(), a requisicao e' abortada e nada toca. Se nao
+   houver voz local em portugues, devolvemos null e o navegador escolhe
+   sozinho a partir do lang="pt-BR" da utterance. */
+function pickVoice(){
+  try{
+    if(!("speechSynthesis" in window)) return null;
+
+    const locais = (window.speechSynthesis.getVoices() || [])
+      .filter(voice => voice.localService);
+
+    return locais.find(voice => /^pt[-_]BR/i.test(voice.lang)) ||
+           locais.find(voice => /^pt/i.test(voice.lang)) ||
+           null;
+  }catch(error){
+    return null;
+  }
+}
+
+/* A fala nunca controla o tempo da sessão. Se falhar, nada muda. */
 function speakNow(text){
   if(!text) return;
   if(!("speechSynthesis" in window)) return;
@@ -1156,6 +1173,9 @@ function speakNow(text){
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
+    const voice = pickVoice();
+
+    if(voice) utterance.voice = voice;
 
     utterance.lang = "pt-BR";
     utterance.rate = 0.88;
@@ -1220,7 +1240,7 @@ function getSessionState(elapsed){
       key:"natural-inicio",
       zone:"natural",
       phase:"Ajuste inicial",
-      instruction:"Respiração natural",
+      instruction:"Respire naturalmente",
       copy:"Sem esforço. Apenas observe.",
       count:String(Math.max(1, Math.ceil(GUIDED_START - elapsed))),
       stepDuration:null
@@ -1263,7 +1283,7 @@ function getSessionState(elapsed){
       key:"cycle-" + cycleIndex + "-pause",
       zone:"pause",
       phase:phase,
-      instruction:"Pausa",
+      instruction:"Pausa confortável",
       copy:"",
       count:"1",
       stepDuration:PAUSE
@@ -1274,7 +1294,7 @@ function getSessionState(elapsed){
     key:"natural-final",
     zone:"natural",
     phase:"Encerramento",
-    instruction:"Respiração natural",
+    instruction:"Respire naturalmente",
     copy:"Deixe o ritmo se acomodar.",
     count:String(Math.max(1, Math.ceil(total - elapsed))),
     stepDuration:null
