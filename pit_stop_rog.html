@@ -1131,9 +1131,12 @@ function playConfirmTone(){
     oscillator.start(audioCtx.currentTime);
     oscillator.stop(audioCtx.currentTime + 0.17);
 
+    /* Fechar o contexto cedo demais descarta o que ainda esta no buffer de
+       saida e o beep some. A folga precisa cobrir a latencia do dispositivo
+       (fone Bluetooth chega a 300 ms). */
     setTimeout(() => {
       try{ audioCtx.close(); }catch(error){}
-    }, 260);
+    }, 2000);
   }catch(error){}
 }
 
