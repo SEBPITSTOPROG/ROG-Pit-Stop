@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagnóstico de voz — Pit Stop</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:Arial, Helvetica, sans-serif;
+  background:#142440;
+  color:#eef6fa;
+  padding:18px;
+  line-height:1.5;
+}
+h1{font-size:19px;margin-bottom:4px}
+p.sub{font-size:13px;color:#a9bed0;margin-bottom:18px}
+button{
+  display:block;
+  width:100%;
+  padding:16px;
+  margin-bottom:10px;
+  border:1px solid rgba(114,177,200,.5);
+  border-radius:12px;
+  background:#1F355E;
+  color:#fff;
+  font-size:15px;
+  font-weight:bold;
+  cursor:pointer;
+}
+button.go{background:linear-gradient(135deg,#ffffff,#dff3f8);color:#1F355E}
+#log{
+  margin-top:16px;
+  padding:12px;
+  background:rgba(0,0,0,.3);
+  border-radius:12px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;
+  font-size:12px;
+  white-space:pre-wrap;
+  word-break:break-word;
+  min-height:180px;
+}
+.ok{color:#7ee0a0}
+.bad{color:#ff9d9d}
+.info{color:#8fc7dd}
+</style>
+</head>
+<body>
+
+<h1>Diagnóstico de voz</h1>
+<p class="sub">Abra no MESMO aparelho e navegador onde o Pit Stop ficou mudo. Toque nos botões na ordem e me mande o texto que aparecer embaixo.</p>
+
+<button class="go" id="b1">1 — Falar agora (toque aqui primeiro)</button>
+<button id="b2">2 — Listar vozes do aparelho</button>
+<button id="b3">3 — Simular a sessão (14 falas em 60 s)</button>
+<button id="b4">4 — Testar cancel() + speak() (o padrão suspeito)</button>
+
+<div id="log">aguardando…</div>
+
+<script>
+const logEl = document.getElementById('log');
+let linhas = [];
+
+function log(msg, cls){
+  const t = (performance.now() / 1000).toFixed(2).padStart(6, ' ');
+  linhas.push({ t, msg, cls: cls || 'info' });
+  logEl.innerHTML = linhas
+    .map(l => '<span class="' + l.cls + '">' + l.t + 's  ' + l.msg + '</span>')
+    .join('\n');
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function ambiente(){
+  log('UA: ' + navigator.userAgent);
+  log('speechSynthesis existe: ' + ('speechSynthesis' in window));
+}
+
+/* Fala instrumentada: registra se a engine realmente comecou e terminou.
+   onstart ausente = a engine aceitou o pedido mas nao falou. */
+function falar(texto, rotulo){
+  try{
+    const u = new SpeechSynthesisUtterance(texto);
+    u.lang = 'pt-BR';
+    u.rate = 0.88;
+    u.pitch = 0.92;
+    u.volume = 0.9;
+
+    u.onstart = () => log(rotulo + ' -> onstart (COMECOU a falar)', 'ok');
+    u.onend   = () => log(rotulo + ' -> onend (terminou)', 'ok');
+    u.onerror = e => log(rotulo + ' -> onerror: ' + (e.error || '?'), 'bad');
+
+    window.speechSynthesis.speak(u);
+    log(rotulo + ' -> speak() chamado. speaking=' + window.speechSynthesis.speaking +
+        ' pending=' + window.speechSynthesis.pending);
+  }catch(err){
+    log(rotulo + ' -> EXCECAO: ' + err, 'bad');
+  }
+}
+
+document.getElementById('b1').addEventListener('click', () => {
+  linhas = [];
+  ambiente();
+  log('--- teste 1: uma fala simples, dentro do toque ---');
+  falar('Recupere o foco.', 'fala1');
+  setTimeout(() => {
+    log('2 s depois: speaking=' + window.speechSynthesis.speaking +
+        ' pending=' + window.speechSynthesis.pending);
+    log('Se nao apareceu "onstart" acima, a engine aceitou mas nao falou.', 'bad');
+  }, 2000);
+});
+
+document.getElementById('b2').addEventListener('click', () => {
+  linhas = [];
+  const vs = window.speechSynthesis.getVoices() || [];
+  log('--- teste 2: vozes disponiveis (' + vs.length + ') ---');
+  if(!vs.length){
+    log('LISTA VAZIA. O aparelho nao expos vozes para a pagina.', 'bad');
+  }
+  vs.forEach(v => {
+    const pt = /^pt/i.test(v.lang);
+    log((pt ? '[PT] ' : '     ') + v.name + '  lang=' + v.lang +
+        '  localService=' + v.localService + '  default=' + v.default,
+        pt ? 'ok' : 'info');
+  });
+});
+
+document.getElementById('b3').addEventListener('click', () => {
+  linhas = [];
+  log('--- teste 3: ritmo real da sessao, 14 falas ---');
+  log('Fica com o som ligado e ouve. Deve falar 14 vezes em 60 s.');
+
+  falar('Vamos fazer uma breve recalibração.', 'abertura');
+
+  const cues = [];
+  for(let ciclo = 0; ciclo < 6; ciclo++){
+    cues.push({ t: 8 + ciclo * 8, texto: 'Recupere o foco.', rotulo: 'ciclo' + (ciclo + 1) + '-in' });
+    cues.push({ t: 11 + ciclo * 8, texto: 'Reduza o ruído.', rotulo: 'ciclo' + (ciclo + 1) + '-ex' });
+  }
+  cues.push({ t: 60, texto: 'Prática concluída.', rotulo: 'encerramento' });
+
+  cues.forEach(c => setTimeout(() => falar(c.texto, c.rotulo), c.t * 1000));
+});
+
+document.getElementById('b4').addEventListener('click', () => {
+  linhas = [];
+  log('--- teste 4: cancel() logo antes de speak() ---');
+  log('Era assim que a pagina fazia. Se este travar e o teste 3 nao, achamos.');
+
+  let n = 0;
+  const id = setInterval(() => {
+    n++;
+    window.speechSynthesis.cancel();
+    falar('Recupere o foco.', 'cancel+speak ' + n);
+    if(n >= 6) clearInterval(id);
+  }, 3000);
+});
+</script>
+</body>
+</html>

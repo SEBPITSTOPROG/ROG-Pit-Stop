@@ -1142,40 +1142,27 @@ function playConfirmTone(){
   }catch(error){}
 }
 
-/* Prefere uma voz pt-BR do proprio aparelho.
+/* A fala nunca controla o tempo da sessão. Se falhar, nada muda.
 
-   So consideramos vozes locais (localService). As remotas — como a "Google
-   português do Brasil" — sintetizam via rede, e como cancel() roda logo
-   antes de cada speak(), a requisicao e' abortada e nada toca. Se nao
-   houver voz local em portugues, devolvemos null e o navegador escolhe
-   sozinho a partir do lang="pt-BR" da utterance. */
-function pickVoice(){
-  try{
-    if(!("speechSynthesis" in window)) return null;
+   Duas regras aprendidas na marra, testando em celular:
 
-    const locais = (window.speechSynthesis.getVoices() || [])
-      .filter(voice => voice.localService);
+   1. NAO definir utterance.voice. Escolher a voz na mao quebra o som no
+      aparelho: no Android as vozes reportam localService:false mesmo sendo
+      do sistema, no iOS reportam true — entao qualquer filtro se comporta
+      diferente em cada plataforma. Com lang="pt-BR" e voice indefinido, o
+      navegador escolhe a voz certa sozinho.
 
-    return locais.find(voice => /^pt[-_]BR/i.test(voice.lang)) ||
-           locais.find(voice => /^pt/i.test(voice.lang)) ||
-           null;
-  }catch(error){
-    return null;
-  }
-}
-
-/* A fala nunca controla o tempo da sessão. Se falhar, nada muda. */
+   2. NAO chamar cancel() aqui. cancel() seguido de speak() na sequencia
+      trava a engine do Chrome no Android, que para de falar sem erro
+      nenhum. Como as falas ficam a 3 s de distancia e duram ~1,5 s, elas
+      nunca se sobrepoem e nao ha o que cancelar. Interromper de verdade so
+      faz sentido ao reiniciar, e isso clearSpeech() ja faz. */
 function speakNow(text){
   if(!text) return;
   if(!("speechSynthesis" in window)) return;
 
   try{
-    window.speechSynthesis.cancel();
-
     const utterance = new SpeechSynthesisUtterance(text);
-    const voice = pickVoice();
-
-    if(voice) utterance.voice = voice;
 
     utterance.lang = "pt-BR";
     utterance.rate = 0.88;
