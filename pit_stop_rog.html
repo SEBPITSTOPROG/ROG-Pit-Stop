@@ -1056,14 +1056,22 @@ const CYCLE         = INHALE + EXHALE + PAUSE;
 const CYCLES        = 6;
 const GUIDED_END    = GUIDED_START + (CYCLES * CYCLE);
 
-/* A voz reforca a intencao de cada etapa dos 6 ciclos. Ela nunca narra a
-   contagem nem diz "inspire"/"expire" — isso fica no texto e no numero da
-   tela, que continuam funcionando com o som desligado. */
+/* A voz reforca a intencao em momentos estrategicos, nunca a cada ciclo:
+   abertura, 1o ciclo (quando o ritmo esta sendo aprendido), 4o ciclo
+   (reforco no meio) e encerramento — 6 falas na sessao inteira.
+
+   O numero importa. Com uma fala a cada 3 s a engine de voz do celular
+   trava e emudece o resto da sessao; espacadas assim ela aguenta. A voz
+   tambem nunca narra a contagem nem diz "inspire"/"expire": isso fica no
+   texto e no numero da tela, que funcionam com o som desligado. */
 const voiceCues = {
   "prep"    : "Vamos fazer uma breve recalibração.",
   "inhale"  : "Recupere o foco.",
   "exhale"  : "Reduza o ruído."
 };
+
+/* Indices dos ciclos (0 a 5) que recebem fala. */
+const VOICE_CYCLES = [0, 3];
 
 const ZONE_STATES = ["prestart","natural","inhale","exhale","pause","hold","breathing"];
 
@@ -1249,7 +1257,7 @@ function getSessionState(elapsed){
         copy:"Recupere o foco",
         count:String(Math.max(1, Math.ceil(INHALE - within))),
         stepDuration:INHALE,
-        voice:voiceCues.inhale
+        voice:VOICE_CYCLES.indexOf(cycleIndex) === -1 ? null : voiceCues.inhale
       };
     }
 
@@ -1262,7 +1270,7 @@ function getSessionState(elapsed){
         copy:"Reduza o ruído",
         count:String(Math.max(1, Math.ceil(INHALE + EXHALE - within))),
         stepDuration:EXHALE,
-        voice:voiceCues.exhale
+        voice:VOICE_CYCLES.indexOf(cycleIndex) === -1 ? null : voiceCues.exhale
       };
     }
 

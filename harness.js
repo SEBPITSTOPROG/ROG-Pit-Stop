@@ -181,24 +181,31 @@ console.log('\n=== 3. FALAS DISPARADAS ===');
 s.speech.forEach(x => console.log('  t=' + String(x.t).padEnd(7) + ' "' + x.text + '"'));
 const texts = s.speech.map(x => x.text);
 check('fala de abertura em t=0', s.speech[0] && s.speech[0].t < 0.05);
-check('"Recupere o foco." falada nos 6 ciclos', texts.filter(t => t === 'Recupere o foco.').length === 6,
+check('"Recupere o foco." falada 2x (ciclos 1 e 4)', texts.filter(t => t === 'Recupere o foco.').length === 2,
   texts.filter(t => t === 'Recupere o foco.').length + 'x');
-check('"Reduza o ruído." falada nos 6 ciclos', texts.filter(t => t === 'Reduza o ruído.').length === 6,
+check('"Reduza o ruído." falada 2x (ciclos 1 e 4)', texts.filter(t => t === 'Reduza o ruído.').length === 2,
   texts.filter(t => t === 'Reduza o ruído.').length + 'x');
 check('nenhuma fala narra inspire/expire', !texts.some(t => /inspir|expir/i.test(t)), texts.join(' | '));
 check('nenhuma fala narra a contagem', !texts.some(t => /\b(um|dois|tr[eê]s|quatro|cinco|[0-9])\b/i.test(t)),
   texts.join(' | '));
 check('a pausa nao e narrada', !texts.some(t => /pausa/i.test(t)), texts.join(' | '));
-check('total de falas na sessao = 14 (abertura + 6x2 + encerramento)', s.speech.length === 14,
+/* A engine de voz do celular trava quando as falas ficam proximas demais.
+   Este teto e' uma regra de plataforma, nao um detalhe de conteudo. */
+check('total de falas na sessao = 6 (abertura + ciclos 1 e 4 + encerramento)', s.speech.length === 6,
   s.speech.length + ' falas');
 const focoTimes = s.speech.filter(x => x.text === 'Recupere o foco.').map(x => x.t);
 const ruidoTimes = s.speech.filter(x => x.text === 'Reduza o ruído.').map(x => x.t);
-check('"Recupere o foco." no inicio de cada inspiracao (8, 16, 24, 32, 40, 48 s)',
-  [8, 16, 24, 32, 40, 48].every((exp, i) => Math.abs(focoTimes[i] - exp) <= 0.025),
-  focoTimes.join(', '));
-check('"Reduza o ruído." no inicio de cada expiracao (11, 19, 27, 35, 43, 51 s)',
-  [11, 19, 27, 35, 43, 51].every((exp, i) => Math.abs(ruidoTimes[i] - exp) <= 0.025),
-  ruidoTimes.join(', '));
+check('"Recupere o foco." nas inspiracoes dos ciclos 1 e 4 (8 e 32 s)',
+  [8, 32].every((exp, i) => Math.abs(focoTimes[i] - exp) <= 0.025), focoTimes.join(', '));
+check('"Reduza o ruído." nas expiracoes dos ciclos 1 e 4 (11 e 35 s)',
+  [11, 35].every((exp, i) => Math.abs(ruidoTimes[i] - exp) <= 0.025), ruidoTimes.join(', '));
+
+const intervalos = s.speech.slice(1).map((x, i) => +(x.t - s.speech[i].t).toFixed(2));
+/* 2,95 e' 3 s menos a quantizacao de um quadro: a fala da inspiracao entra
+   um quadro depois do instante nominal, a da expiracao entra cravada. */
+check('nenhuma fala a menos de 3 s da anterior', intervalos.every(d => d >= 2.95),
+  'intervalos: ' + intervalos.join(', ') + ' s');
+check('speakNow nao chama cancel() entre as falas', s.cancels <= 2, s.cancels + ' cancels na sessao');
 
 // ===================================================================== TEST 4
 console.log('\n=== 4. REINICIO ===');

@@ -7,7 +7,7 @@ Página única e autocontida (HTML + CSS + JS, logo embutido em base64). Não ex
 | Arquivo | O que é |
 | --- | --- |
 | `pit_stop_rog.html` | A página. É o único arquivo que precisa ir para produção. |
-| `harness.js` | Suíte de testes em jsdom: 47 verificações da sessão completa. |
+| `harness.js` | Suíte de testes em jsdom: 49 verificações da sessão completa. |
 | `package.json` | Só o jsdom, usado pelos testes. |
 
 ## Linha do tempo da sessão
@@ -22,9 +22,17 @@ Página única e autocontida (HTML + CSS + JS, logo embutido em base64). Não ex
 
 Tudo é derivado de `performance.now()` a cada quadro: anel, contador, barra de progresso e cronômetro leem o mesmo tempo decorrido. A duração de cada etapa vai para o CSS pela variável `--step-dur`, então a animação acompanha a contagem.
 
-A voz tem 14 falas ancoradas na linha do tempo: abertura, "Recupere o foco" na inspiração e "Reduza o ruído" na expiração de cada um dos 6 ciclos, e encerramento. Ela nunca narra a contagem, nem diz "inspire"/"expire", nem anuncia a pausa — isso fica no texto e no número da tela. E nunca controla o tempo: se a síntese falhar, não existir no navegador ou o aparelho estiver no mudo, a sessão roda igual até os 60 s.
+A voz tem **6 falas** ancoradas na linha do tempo: abertura (0 s), "Recupere o foco" e "Reduza o ruído" no 1º ciclo (8 s e 11 s) e no 4º (32 s e 35 s), e encerramento (60 s). Ela nunca narra a contagem, nem diz "inspire"/"expire", nem anuncia a pausa — isso fica no texto e no número da tela. E nunca controla o tempo: se a síntese falhar, não existir no navegador ou o aparelho estiver no mudo, a sessão roda igual até os 60 s.
 
-A escolha de voz considera **apenas vozes locais** (`localService`), preferindo pt-BR. As remotas — como a "Google português do Brasil" — sintetizam via rede, e como `cancel()` roda logo antes de cada `speak()`, a requisição é abortada e nada toca. Sem voz local em português, `pickVoice()` devolve `null` e o navegador escolhe sozinho a partir do `lang="pt-BR"`.
+### Duas regras de voz que vieram de falhas reais em celular
+
+Ambas custaram uma sessão inteira de depuração. Os testes travam as duas.
+
+1. **Não definir `utterance.voice`.** Escolher a voz na mão emudece o aparelho. Filtrar por `localService` não resolve: o Android reporta `false` para as vozes do próprio sistema e o iOS reporta `true`, então qualquer filtro se comporta diferente nas duas plataformas para as quais a página é publicada. Com `lang="pt-BR"` e `voice` indefinido, o navegador resolve certo nos dois.
+
+2. **Não chamar `cancel()` antes de cada `speak()`.** Essa sequência trava a engine do Chrome no Android, que passa a falhar em silêncio. Só `clearSpeech()` cancela, no reinício — que é o único momento em que interromper faz sentido.
+
+E o **número de falas é regra de plataforma, não de conteúdo**: com uma fala a cada 3 s (14 na sessão) a engine do celular trava e emudece o resto. Seis, espaçadas, aguentam.
 
 ## Rodar os testes
 
@@ -33,7 +41,7 @@ npm install
 npm test
 ```
 
-Saída esperada: `47/47 verificacoes aprovadas`. O script sai com código 1 se algo falhar.
+Saída esperada: `49/49 verificacoes aprovadas`. O script sai com código 1 se algo falhar.
 
 Cobertura: seleção de condição e arranque, os 60 s quadro a quadro (transições em 3, 8, 11, 15 s e a cada 8 s até 56 s), rótulos de ciclo, desvio do cronômetro, tela final, disparo e conteúdo das falas, reinício pelos dois botões, sessão com `speak()` lançando exceção, sessão sem API de voz, e aba em segundo plano com os quadros congelados.
 
