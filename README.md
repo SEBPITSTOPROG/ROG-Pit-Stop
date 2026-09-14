@@ -24,15 +24,23 @@ Tudo é derivado de `performance.now()` a cada quadro: anel, contador, barra de 
 
 A voz tem **6 falas** ancoradas na linha do tempo: abertura (0 s), "Recupere o foco" e "Reduza o ruído" no 1º ciclo (8 s e 11 s) e no 4º (32 s e 35 s), e encerramento (60 s). Ela nunca narra a contagem, nem diz "inspire"/"expire", nem anuncia a pausa — isso fica no texto e no número da tela. E nunca controla o tempo: se a síntese falhar, não existir no navegador ou o aparelho estiver no mudo, a sessão roda igual até os 60 s.
 
-### Duas regras de voz que vieram de falhas reais em celular
+### Regras de voz que vieram de falhas reais em celular
 
-Ambas custaram uma sessão inteira de depuração. Os testes travam as duas.
+Cada uma custou uma sessão de depuração. Os testes travam todas.
 
-1. **Não definir `utterance.voice`.** Escolher a voz na mão emudece o aparelho. Filtrar por `localService` não resolve: o Android reporta `false` para as vozes do próprio sistema e o iOS reporta `true`, então qualquer filtro se comporta diferente nas duas plataformas para as quais a página é publicada. Com `lang="pt-BR"` e `voice` indefinido, o navegador resolve certo nos dois.
+1. **A voz escolhida é uma tentativa, nunca um compromisso.** A página prefere uma voz pt-BR, mas uma voz pode estar na lista e mesmo assim não produzir som — e definir `utterance.voice` já emudeceu a página inteira no aparelho. Por isso um `onerror` repete a fala **uma vez** sem voz explícita, deixando o navegador resolver pelo `lang`. Voz errada nunca custa o som.
 
-2. **Não chamar `cancel()` antes de cada `speak()`.** Essa sequência trava a engine do Chrome no Android, que passa a falhar em silêncio. Só `clearSpeech()` cancela, no reinício — que é o único momento em que interromper faz sentido.
+2. **A falha só é lida do sinal que a engine dá.** Uma versão anterior deduzia a falha por tempo limite; os testes pegaram ela falando tudo duas vezes em engines que não disparam `onstart`. Só `onerror` dispara a repetição.
 
-E o **número de falas é regra de plataforma, não de conteúdo**: com uma fala a cada 3 s (14 na sessão) a engine do celular trava e emudece o resto. Seis, espaçadas, aguentam.
+3. **A lista de vozes carrega atrasada.** `getVoices()` volta vazia na primeira leitura. A escolha é recalculada em `voiceschanged` e de novo dentro do toque do botão.
+
+4. **`cancel()` só quando há algo tocando.** `cancel()` seguido de `speak()` trava a engine do Chrome no Android. E quem cancela zera a marca de sobreposição — sem isso, a abertura do reinício era engolida, já que `cancel()` não limpa `speaking` na hora em todo navegador.
+
+5. **A trava anti-sobreposição expira em 4 s.** A flag `speaking` às vezes fica presa no Android; sem a expiração, um travamento emudeceria o resto da sessão.
+
+6. **O número de falas é regra de plataforma, não de conteúdo.** Com uma fala a cada 3 s (14 na sessão) a engine do celular trava e emudece o resto. Seis, espaçadas, aguentam.
+
+A primeira fala sai de dentro da pilha do toque em "Iniciar", sem `await` nem timer: é isso que destrava o motor no iOS e satisfaz a exigência de ativação do Chrome (M71+). Não há autoplay em lugar nenhum.
 
 ## Rodar os testes
 
